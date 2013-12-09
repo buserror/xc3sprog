@@ -1,0 +1,76 @@
+#
+# Real Makefile for x3cprogs. Allow easy crosscompilation, and selectively
+# compile cables in
+#
+# (C) Michel Pollet <buserror@gmail.com>
+#
+CXX 		?= g++
+
+CFLAGS		= -O2 -g
+
+OBJ			:= obj-${shell $(CROSS)$(CXX) -dumpmachine}
+
+CPPFLAGS 	+= -I. -I${OBJ}
+
+${OBJ}/%.o: %.cpp
+	$(CROSS)$(CXX) -MMD $(CPPFLAGS) $(CFLAGS) -c -o $@ $*.cpp
+
+all: ${OBJ} ${OBJ}/xc3sprog
+
+${OBJ}:
+	mkdir -p ${OBJ}
+
+${OBJ}/cables.h: cablelist.txt
+	(	echo -n "const char cabledb_string[]={\""; \
+		cat cablelist.txt |awk '{ printf("%s;", $$0); }' ;\
+		echo "\"};") >$@
+
+${OBJ}/devices.h: devlist.txt
+	(	echo -n "const char fb_string[]={\""; \
+		cat cablelist.txt |awk '{ printf("%s;", $$0); }' ;\
+		echo "\"};") >$@
+
+OBJS 		:= bitfile.o \
+	cabledb.o devicedb.o iobase.o iodebug.o \
+	bitrev.o javr.o \
+	jedecfile.o jtag.o mapfile_xc2c.o progalgavr.o \
+	progalgspiflash.o progalgxc2c.o progalgxc3s.o progalgxc95x.o progalgxcf.o \
+	pdioverjtag.o progalgxcfp.o srecfile.o \
+	utilities.o xc3sprog.o xmega_pdi_nvm.o
+
+ifeq ($(FDTI),1)
+OBJS += ioftdi.o
+LDFLAGS	 += -lusb -lftdi
+else
+CPPFLAGS += -DCONFIG_NO_FTDI
+endif
+ifeq ($(XPC),1)
+OBJS += ioxpc.o
+else
+CPPFLAGS += -DCONFIG_NO_XPC
+endif
+ifeq ($(PARPORT),1)
+OBJS += ioparport.o
+else
+CPPFLAGS += -DCONFIG_NO_PARPORT
+endif
+ifeq ($(FX2),1)
+OBJS += iofx2.o
+else
+CPPFLAGS += -DCONFIG_NO_FX2
+endif
+
+DOBJS		:= ${patsubst %.o,${OBJ}/%.o, ${OBJS}}
+
+${OBJ}/xc3sprog: ${OBJ}/cables.h
+${OBJ}/xc3sprog: ${OBJ}/devices.h
+${OBJ}/xc3sprog: $(DOBJS)
+
+${OBJ}/xc3sprog:
+	$(CROSS)$(CXX) -o $@ $^ $(LDFLAGS)
+
+
+clean:
+	rm -rf $(OBJ)
+
+-include {OBJ}/*.d
