@@ -41,3 +41,4 @@ xc2c_warp
 /javr/*.exe
 /javr/*.o
 javr/Makefile
+obj-*
