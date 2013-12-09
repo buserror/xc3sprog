@@ -29,18 +29,18 @@ void detect_chain(Jtag *jtag, DeviceDB *db)
 		db->getDeviceDescription(dblast),
                 (int)(id >> 28) | 'A', length);
 	dblast++;
-      } 
+      }
       else{
 	fprintf(stderr,"not found in '%s'.\n", db->getFile().c_str());
       }
     }
 }
 
-int  getIO( std::auto_ptr<IOBase> *io, struct cable_t * cable, char const *dev, 
-            char const *serial, bool verbose, bool use_ftd2xx, 
+int  getIO( std::auto_ptr<IOBase> *io, struct cable_t * cable, char const *dev,
+            char const *serial, bool verbose, bool use_ftd2xx,
             unsigned int freq)
 {
-    int res;
+    int res = 1;
     unsigned int use_freq;
 
     if (!cable)
@@ -54,34 +54,41 @@ int  getIO( std::auto_ptr<IOBase> *io, struct cable_t * cable, char const *dev,
         use_freq = cable->freq;
     else
         use_freq = freq;
-
+#ifndef CONFIG_NO_PARPORT
   if (cable->cabletype == CABLE_PP)
     {
 	  io->reset(new IOParport());
           io->get()->setVerbose(verbose);
           res = io->get()->Init(cable, dev, use_freq);
     }
-  else if(cable->cabletype == CABLE_FTDI)  
+#endif
+#ifndef CONFIG_NO_FTDI
+  if(cable->cabletype == CABLE_FTDI)
   {
       io->reset(new IOFtdi(use_ftd2xx));
       io->get()->setVerbose(verbose);
       res = io->get()->Init(cable, serial, use_freq);
   }
-  else if(cable->cabletype  == CABLE_FX2)
-  { 
+#endif
+#ifndef CONFIG_NO_FX2
+  if(cable->cabletype  == CABLE_FX2)
+  {
       io->reset(new IOFX2());
       io->get()->setVerbose(verbose);
       res = io->get()->Init(cable, serial, use_freq);
   }
-  else if(cable->cabletype == CABLE_XPC)  
+#endif
+#ifndef CONFIG_NO_XPC
+  if(cable->cabletype == CABLE_XPC)
   {
       io->reset(new IOXPC());
       io->get()->setVerbose(verbose);
       res = io->get()->Init(cable, serial, use_freq);
   }
-  else
+#endif
+  if (res)
   {
-      fprintf(stderr, "Unknown Cable \"%s\" \n", getCableName(cable->cabletype));
+      fprintf(stderr, "Unable to create cable \"%s\" \n", getCableName(cable->cabletype));
   }
   return res;
 }
